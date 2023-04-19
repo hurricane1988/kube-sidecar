@@ -1,0 +1,45 @@
+# 日志配置
+logging:
+  logPath: /tmp
+  filename: kube-sidecar.log
+  writeLog: true
+  maxSize: 10
+  maxBackups: 3
+  maxAge: 3
+# 便车容器相关
+sidecar:
+  name: log-sidecar
+  image: "asdf"
+  imagePullPolicy: Always
+  requestsCPU: 250m
+  requestsMemory: 512Mi
+  volumeName: sidecar-config
+  volumeMount: /tmp
+  readOnly: true
+# 配置fluentBit
+fluentBit:
+  # fluentBit日志level,默认info"
+  serviceLogLevel: info
+  # 采集日志缓存大小
+  inputMemBufLimit:
+  # 采集日志刷新间隔
+  inputRefreshInterval:
+# namespace白名单
+namespacesWhiteList:
+  - kube-system
+  - kube-public
+  - kube-node-lease
+  - weave
+  - kubesphere-logging-system
+  - fc-monitoring-system
+  - istio-system
+  - kubesphere-system
+  - kubesphere-controls-system
+  - kubesphere-monitoring-system
+  - kubesphere-devops-system
+  - kubesphere-monitoring-federated
+# deployment白名单
+deploymentWhiteList:
+  - aa
+  - bb
+  - cc

@@ -15,3 +15,133 @@ limitations under the License.
 */
 
 package config
+
+import (
+	"fmt"
+	"github.com/fsnotify/fsnotify"
+	"github.com/spf13/viper"
+	"github.com/wonderivan/logger"
+	"k8s.io/client-go/util/homedir"
+	"path/filepath"
+)
+
+const (
+	// WorkDir = "/opt"
+	WorkDir = "/Users/hurricane/github/kube-sidecar"
+)
+
+// Config 定义全局配置
+var Config *config
+
+// 初始化全局配置
+func init() {
+	f, err := LoadConfigFromFile()
+	if err != nil {
+		Config = nil
+	}
+	Config = f
+	fmt.Println(Config)
+}
+
+// LoadConfigFromFile 初始化配置文件
+func LoadConfigFromFile() (*config, error) {
+	// 获取当前程序执行路径
+	// workDir, _ := os.Getwd()
+	workDir := filepath.Join(WorkDir, "config", "conf")
+	// 创建一个Viper实例并读取初始配置文件
+	viperInstance := viper.New()
+	// 加载viper获取配置路径
+	viperInstance.AddConfigPath(workDir)
+	viperInstance.AddConfigPath(homedir.HomeDir())
+	viperInstance.AddConfigPath(".")
+	// 设置读取配置文件
+	// 设置读取的文件名
+	viperInstance.SetConfigName("config")
+	// 设置读取的文件后缀
+	viperInstance.SetConfigType("yaml")
+	// 匹配环境变量
+	viperInstance.AutomaticEnv()
+
+	// 执行读取配置文件
+	if err := viperInstance.ReadInConfig(); err != nil {
+		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
+			logger.Error("配置文件" + workDir + "/conf.yaml 不存在!")
+		} else {
+			logger.Error(err.Error())
+		}
+	}
+	// 配置文件加载成功
+	logger.Info("加载配置文件" + workDir + "/conf.yaml 成功!")
+	/* viper动态加载配置 */
+	// 监视配置文件是否发生更改
+	viperInstance.WatchConfig()
+	// 处理配置变更事件
+	viperInstance.OnConfigChange(func(in fsnotify.Event) {
+		// TODO: 联调测试
+		logger.Info("配置文件" + in.Name + "发生变更")
+		// 重新初始化并生效配置
+		NewConfig(viperInstance)
+	})
+	NewConfig(viperInstance)
+	var conf = NewConfig(viperInstance)
+	if err := viper.Unmarshal(conf); err != nil {
+		return nil, err
+	}
+	return conf, nil
+}
+
+// NewConfig 创建默认的config
+func NewConfig(viper *viper.Viper) *config {
+	return &config{
+		LoggingConfig:       *NewLogging(viper),
+		Sidecar:             *NewSidecar(viper),
+		NamespacesWhiteList: *NewNamespacesWhiteList(viper),
+		DeploymentWhiteList: *NewDeploymentWhiteList(viper),
+		FluentBitConfig:     *NewFluentBitConfig(viper),
+	}
+}
+
+// NewLogging 日志配置
+func NewLogging(viper *viper.Viper) *logging {
+	return &logging{
+		LogPath:    viper.GetString("logging.logPath"),
+		Filename:   viper.GetString("logging.filename"),
+		WriteLog:   viper.GetBool("logging.writeLog"),
+		MaxSize:    viper.GetInt("logging.maxSize"),
+		MaxBackups: viper.GetInt("logging.maxBackups"),
+		MaxAge:     viper.GetInt("logging.maxAge"),
+	}
+}
+
+// NewSidecar sidecar容器配置
+func NewSidecar(viper *viper.Viper) *sidecar {
+	return &sidecar{
+		Name:            viper.GetString("sidecar.name"),
+		Image:           viper.GetString("sidecar.image"),
+		ImagePullPolicy: viper.GetString("sidecar.imagePullPolicy"),
+		RequestsCPU:     viper.GetString("sidecar.requestsCPU"),
+		RequestsMemory:  viper.GetString("sidecar.requestsMemory"),
+		VolumeName:      viper.GetString("sidecar.volumeName"),
+		VolumeMount:     viper.GetString("sidecar.volumeMount"),
+		ReadOnly:        viper.GetBool("sidecar.readOnly"),
+	}
+}
+
+// NewNamespacesWhiteList 获取NamespacesWhiteList配置方法
+func NewNamespacesWhiteList(viper *viper.Viper) *namespacesWhiteList {
+	return &namespacesWhiteList{Names: viper.GetStringSlice("namespacesWhiteList")}
+}
+
+// NewDeploymentWhiteList 获取deploymentWhiteList配置方法
+func NewDeploymentWhiteList(viper *viper.Viper) *deploymentWhiteList {
+	return &deploymentWhiteList{Names: viper.GetStringSlice("deploymentWhiteList")}
+}
+
+// NewFluentBitConfig 获取FluentBit配置方法
+func NewFluentBitConfig(viper *viper.Viper) *fluentBitConfig {
+	return &fluentBitConfig{
+		ServiceLogLevel:      viper.GetString("fluentBit.serviceLogLevel"),
+		InputMemBufLimit:     viper.GetString("fluentBit.inputMemBufLimit"),
+		InputRefreshInterval: viper.GetInt("fluentBit.inputRefreshInterval"),
+	}
+}

@@ -14,22 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package tools
 
-import (
-	"kube-sidecar/pkg/model/deploy"
-
-	"kube-sidecar/utils/clients/k8s"
-)
-
-func main() {
-	options := k8s.NewKubernetesOptions()
-	client, _ := k8s.NewKubernetesClient(options)
-	deploy.WatchDeployment(client)
-	// podList, _ := client.Kubernetes().CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{})
-	//
-	// for _, pod := range podList.Items {
-	// 	fmt.Println(pod.Name, pod.Namespace)
-	// }
-
+// WhetherExists 检查某个字符是否在slice切片中
+func WhetherExists(key string, slice []string) bool {
+	m := make(map[interface{}]bool)
+	for _, v := range slice {
+		m[v] = true
+	}
+	return m[key]
 }

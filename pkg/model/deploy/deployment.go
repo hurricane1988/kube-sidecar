@@ -21,57 +21,109 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/klog/v2"
+	"k8s.io/apimachinery/pkg/watch"
+	"strconv"
+
+	"kube-sidecar/config"
+	"kube-sidecar/pkg/model/container"
+	sc "kube-sidecar/pkg/model/secret"
+	"kube-sidecar/utils/tools"
+
+	lg "kube-sidecar/utils/logging"
 
 	"kube-sidecar/utils/clients/k8s"
 )
 
+// 定义全局annotation key值
+const (
+	annotationKey = "deployment.kubernetes.io/sidecar"
+)
+
 // AddDeploymentSidecar 为deployment添加sidecar容器方法
-func AddDeploymentSidecar(container *corev1.Container, deployment *appsv1.Deployment) {
-	// 新增sidecar container
-	deployment.Spec.Template.Spec.Containers = append(deployment.Spec.Template.Spec.Containers, *container)
-}
-
-// AddSidecarSecretVolume 为Deployment中的sidecar容器添加secret volume
-func AddSidecarSecretVolume(ctx context.Context, client k8s.Client, volumeName, secretName, mountPath string, deployment *appsv1.Deployment) {
-	// 为deployment添加Secret卷
-	deployment.Spec.Template.Spec.Volumes = append(
-		deployment.Spec.Template.Spec.Volumes,
-		corev1.Volume{
-			Name: volumeName,
-			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName: secretName,
-				},
-			},
-		})
-
-	// 挂载卷到sidecar容器
-	deployment.Spec.Template.Spec.Containers[len(deployment.Spec.Template.Spec.Containers)-1].VolumeMounts = append(
-		deployment.Spec.Template.Spec.Containers[len(deployment.Spec.Template.Spec.Containers)-1].VolumeMounts,
-		corev1.VolumeMount{
-			Name:      volumeName,
-			MountPath: mountPath,
-		},
-	)
-	// 更新deployment
-	_, err := client.Kubernetes().
-		AppsV1().
-		Deployments(deployment.Name).
-		Update(ctx, deployment, metav1.UpdateOptions{})
-	if err != nil {
-		klog.Errorf("更新Deployment "+deployment.Name+"失败,错误信息", err)
+func AddDeploymentSidecar(deployment *appsv1.Deployment, client k8s.Client) error {
+	// 定义全局错误信息
+	var errMsg error
+	// 创建sidecar容器对象
+	sidecar := container.CreateContainer()
+	// 增加sidecar容器到deployment
+	deployment.Spec.Template.Spec.Containers = append(deployment.Spec.Template.Spec.Containers, *sidecar)
+	// 获取sidecar 后端存储类型
+	interval, _ := strconv.Atoi(deployment.Annotations["deployment.kubernetes.io/sidecar.inputRefreshInterval"])
+	fluentbit := sc.FluentBitConf{
+		ServiceLogLevel:      deployment.Annotations["deployment.kubernetes.io/sidecar.serviceLogLevel"],
+		InputAppName:         deployment.Name,
+		InputLogPath:         deployment.Annotations["deployment.kubernetes.io/sidecar.inputLogPath"],
+		InputAppTag:          deployment.Name,
+		InputMemBufLimit:     deployment.Annotations["deployment.kubernetes.io/sidecar.inputMemBufLimit"],
+		InputRefreshInterval: interval,
+		OutputEsHost:         deployment.Annotations["deployment.kubernetes.io/sidecar.outputEsHost"],
+		OutputEsPort:         deployment.Annotations["deployment.kubernetes.io/sidecar.outputEsHost"],
+		OutputEsIndex:        deployment.Annotations["deployment.kubernetes.io/sidecar.outputEsIndex"],
+		OutputEsUser:         deployment.Annotations["deployment.kubernetes.io/sidecar.outputEsUser"],
+		OutputEsPassword:     deployment.Annotations["deployment.kubernetes.io/sidecar.outputEsPassword"],
+		OutputKafkaHost:      deployment.Annotations["deployment.kubernetes.io/sidecar.outputKafkaHost"],
+		OutputKafkaPort:      deployment.Annotations["deployment.kubernetes.io/sidecar.outputKafkaPort"],
+		OutputKafkaTopic:     deployment.Annotations["deployment.kubernetes.io/sidecar.outputKafkaTopic"],
+		OutputKafkaUser:      deployment.Annotations["deployment.kubernetes.io/sidecar.outputKafkaUser"],
+		OutputKafkaPassword:  deployment.Annotations["deployment.kubernetes.io/sidecar.outputKafkaPassword"],
 	}
+	backendType := deployment.Annotations["deployment.kubernetes.io/sidecar.backend"]
+	// 基于backendType创建不同的secret配置
+	err := sc.CreateFluentBitSecret(backendType, deployment.Name, deployment.Namespace, client, fluentbit)
+	if err != nil {
+		lg.Logger.Error(err.Error())
+		errMsg = err
+	}
+	// 创建secret volume对象
+	secretVolume := corev1.Volume{
+		Name: "fluentbit-config",
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: deployment.Name,
+			},
+		},
+	}
+	// 添加卷至Deployment
+	deployment.Spec.Template.Spec.Volumes = append(deployment.Spec.Template.Spec.Volumes, secretVolume)
+	// 更新Deployment object添加新的sidecar容器和卷
+	_, err = client.Kubernetes().AppsV1().Deployments(deployment.Name).Update(context.TODO(), deployment, metav1.UpdateOptions{})
+	if err != nil {
+		lg.Logger.Error("更新deployment " + deployment.Name + "失败,错误信息," + err.Error())
+		errMsg = err
+	}
+	lg.Logger.Info("更新deployment " + deployment.Name + "成功!")
+	return errMsg
 }
 
-// OnUpdate 创建处理Deployment更新方法
-func OnUpdate(container corev1.Container) {
-	const (
-		annotationKey = "deployment.kubernetes.io/sidecar"
+// WatchDeployment watching kubernetes deployment changes
+func WatchDeployment(client k8s.Client) {
+	// 定义全局Deployment对象
+	var (
+		cf = config.Config
 	)
-	deployment := &appsv1.Deployment{}
-	annotations := deployment.Annotations
-	if val, ok := annotations[annotationKey]; ok && val == "true" {
-		AddDeploymentSidecar(&container, deployment)
+	// 创建watchInterface接口
+	watchInterface, err := client.Kubernetes().AppsV1().Deployments("").Watch(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		lg.Logger.Error("创建Deployment的watch失败,错误信息" + err.Error())
+	}
+	// 开始执行watching deployment
+	for event := range watchInterface.ResultChan() {
+		// 检查操作事件是否为修改或者新增
+		if event.Type == watch.Modified || event.Type == watch.Added {
+			// 获取更新的Deployment 对象
+			dp := event.Object.(*appsv1.Deployment)
+			// 检查deployment是否有required annotation
+			annotations := dp.GetAnnotations()
+			if annotations[annotationKey] == "true" && tools.WhetherExists(
+				dp.Namespace, cf.NamespacesWhiteList.Names) == false && tools.WhetherExists(
+				dp.Name, cf.DeploymentWhiteList.Names) == false {
+				// 执行自动添加sidecar容器
+				err = AddDeploymentSidecar(dp, client)
+				if err != nil {
+					lg.Logger.Error(dp.Name + " 自动添加sidecar容器镜像失败,错误信息," + err.Error())
+				}
+			}
+			continue
+		}
 	}
 }

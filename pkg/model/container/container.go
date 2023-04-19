@@ -16,4 +16,36 @@ limitations under the License.
 
 package container
 
-// 创建容器方法
+import (
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+
+	"kube-sidecar/config"
+)
+
+// CreateContainer 创建容器方法
+func CreateContainer() *corev1.Container {
+	sidecar := config.Config.Sidecar
+	return &corev1.Container{
+		Name:            sidecar.Name,
+		Image:           sidecar.Image,
+		ImagePullPolicy: corev1.PullPolicy(sidecar.ImagePullPolicy),
+		VolumeMounts: []corev1.VolumeMount{
+			{
+				Name:      sidecar.VolumeName,
+				MountPath: sidecar.VolumeMount,
+			},
+		},
+		// 设置容器的resource资源
+		Resources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse(sidecar.RequestsCPU),
+				corev1.ResourceMemory: resource.MustParse(sidecar.RequestsMemory),
+			},
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse(sidecar.LimitCPU),
+				corev1.ResourceMemory: resource.MustParse(sidecar.LimitMemory),
+			},
+		},
+	}
+}

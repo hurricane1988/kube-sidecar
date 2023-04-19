@@ -17,44 +17,51 @@ limitations under the License.
 package secret
 
 import (
-    "context"
-    corev1 "k8s.io/api/core/v1"
-    metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"context"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 
-    "kube-sidecar/utils/clients/k8s"
+	lg "kube-sidecar/utils/logging"
+
+	"kube-sidecar/utils/clients/k8s"
 )
 
-// CreateSecret 创建secret方法
-func CreateSecret(client k8s.Client, secret *corev1.Secret) error {
-    // 定义全局error
-    var err error
-    _, err = client.Kubernetes().
-        CoreV1().
-        Secrets(secret.Namespace).
-        Create(context.Background(), secret, metav1.CreateOptions{})
-    if err != nil {
-        return err
-    }
-    return err
+// CreateFluentBitSecret 创建secret方法
+func CreateFluentBitSecret(backend, name, namespace string, client k8s.Client, fluent FluentBitConf) error {
+	// 生成fluentBit secret []byte数据
+	data, err := GenerateFluentBitConfig(backend, fluent)
+	if err != nil {
+		lg.Logger.Error("生成fluentBit配置文件失败,错误信息" + err.Error())
+		return nil
+	}
+	// 创建一个新的secret对象
+	newSecret := &corev1.Secret{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Data: map[string][]byte{
+			"fluent-bit.conf": data,
+		},
+	}
+	// 创建secret
+	createdSecret, err := client.Kubernetes().CoreV1().Secrets(namespace).Create(context.Background(), newSecret, v1.CreateOptions{})
+	if err != nil {
+		lg.Logger.Error(err.Error())
+	}
+	if err != nil {
+		lg.Logger.Error(err.Error())
+	}
+	lg.Logger.Info("namespace " + createdSecret.Namespace + "创建secret" + createdSecret.Name + "成功!")
+	return nil
 }
 
-// CreateFluentBitSecret 创建fluentBit Secret
-func CreateFluentBitSecret()  {
-    fluentbitConf := FluentBitConf{
-        ServiceLogLevel:      "info",
-        InputLogPath:         logPath,
-        InputAppName:         r.Name,
-        InputAppTag:          r.Name + ".log",
-        InputMemBufLimit:     "20MB",
-        InputRefreshInterval: 15,
-        OutputEsHost:         address,
-        OutputEsPort:         port,
-        OutputEsIndex:        index,
-        OutputEsUser:         username,
-        OutputEsPassword:     password,
-    }
-}
-    data, err := FluentBitTemplate(FluentBitConf{})
-    if err != nil {
-        panic(err)
+// GenerateFluentBitConfig 创建fluentBit配置文件模版,输出位[]byte
+func GenerateFluentBitConfig(backend string, fluent FluentBitConf) ([]byte, error) {
+	data, err := FluentBitTemplate(backend, fluent)
+	if err != nil {
+		lg.Logger.Error(err.Error())
+		return nil, err
+	}
+	return data, nil
 }
