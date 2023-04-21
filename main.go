@@ -17,19 +17,35 @@ limitations under the License.
 package main
 
 import (
-	"kube-sidecar/pkg/model/deploy"
+	"encoding/json"
+	"net/http"
 
-	"kube-sidecar/utils/clients/k8s"
+	"kube-sidecar/config"
 )
 
+type sidecar struct {
+	Name  string `json:"name"`
+	Image string `json:"image"`
+}
+
 func main() {
-	options := k8s.NewKubernetesOptions()
-	client, _ := k8s.NewKubernetesClient(options)
-	deploy.WatchDeployment(client)
+	// options := k8s.NewKubernetesOptions()
+	// client, _ := k8s.NewKubernetesClient(options)
+	// fmt.Println(config.Config.Sidecar)
+	// deploy.WatchDeployment(client)
 	// podList, _ := client.Kubernetes().CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{})
 	//
 	// for _, pod := range podList.Items {
 	// 	fmt.Println(pod.Name, pod.Namespace)
 	// }
-
+	http.HandleFunc("/", func(writer http.ResponseWriter, request *http.Request) {
+		c := sidecar{
+			Name:  config.Config.Sidecar.Name,
+			Image: config.Config.Sidecar.Image,
+		}
+		jsonBytes, _ := json.MarshalIndent(c, " ", " ")
+		writer.Header().Set("Content-Type", "application/json")
+		writer.Write(jsonBytes)
+	})
+	http.ListenAndServe(":80", nil)
 }

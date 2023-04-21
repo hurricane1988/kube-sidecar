@@ -2,28 +2,30 @@
 logging:
   logPath: /tmp
   filename: kube-sidecar.log
-  writeLog: true
+  writeLog: false
   maxSize: 10
-  maxBackups: 3
-  maxAge: 3
+  maxBackups: 30
+  maxAge: 10
 # 便车容器相关
 sidecar:
-  name: log-sidecar
-  image: "asdf"
-  imagePullPolicy: Always
+  name: log-sidecar01
+  image: fluent/fluent-bit:2.1.0
+  imagePullPolicy: IfNotPresent
   requestsCPU: 250m
   requestsMemory: 512Mi
-  volumeName: sidecar-config
-  volumeMount: /tmp
+  limitsCPU: 250m
+  limitsMemory: 512Mi
+  volumeName: config
+  volumeMount: /fluent-bit/etc/
   readOnly: true
 # 配置fluentBit
 fluentBit:
   # fluentBit日志level,默认info"
   serviceLogLevel: info
   # 采集日志缓存大小
-  inputMemBufLimit:
+  inputMemBufLimit: 20MB
   # 采集日志刷新间隔
-  inputRefreshInterval:
+  inputRefreshInterval: 20
 # namespace白名单
 namespacesWhiteList:
   - kube-system
@@ -40,6 +42,5 @@ namespacesWhiteList:
   - kubesphere-monitoring-federated
 # deployment白名单
 deploymentWhiteList:
-  - aa
-  - bb
-  - cc
+  - coredns
+  - metrics-server

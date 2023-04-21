@@ -17,7 +17,6 @@ limitations under the License.
 package config
 
 import (
-	"fmt"
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/viper"
 	"github.com/wonderivan/logger"
@@ -40,7 +39,6 @@ func init() {
 		Config = nil
 	}
 	Config = f
-	fmt.Println(Config)
 }
 
 // LoadConfigFromFile 初始化配置文件
@@ -79,15 +77,9 @@ func LoadConfigFromFile() (*config, error) {
 	viperInstance.OnConfigChange(func(in fsnotify.Event) {
 		// TODO: 联调测试
 		logger.Info("配置文件" + in.Name + "发生变更")
-		// 重新初始化并生效配置
-		NewConfig(viperInstance)
+		Config = NewConfig(viperInstance)
 	})
-	NewConfig(viperInstance)
-	var conf = NewConfig(viperInstance)
-	if err := viper.Unmarshal(conf); err != nil {
-		return nil, err
-	}
-	return conf, nil
+	return NewConfig(viperInstance), nil
 }
 
 // NewConfig 创建默认的config
@@ -103,6 +95,10 @@ func NewConfig(viper *viper.Viper) *config {
 
 // NewLogging 日志配置
 func NewLogging(viper *viper.Viper) *logging {
+	// 设置默认值
+	viper.SetDefault("logging.maxSize", 10)
+	viper.SetDefault("logging.maxBackups", 3)
+	viper.SetDefault("logging.maxAge", 3)
 	return &logging{
 		LogPath:    viper.GetString("logging.logPath"),
 		Filename:   viper.GetString("logging.filename"),
@@ -115,12 +111,24 @@ func NewLogging(viper *viper.Viper) *logging {
 
 // NewSidecar sidecar容器配置
 func NewSidecar(viper *viper.Viper) *sidecar {
+	// 设置默认值
+	viper.SetDefault("sidecar.name", "log-sidecar")
+	viper.SetDefault("sidecar.imagePullPolicy", "Always")
+	viper.SetDefault("sidecar.requestsCPU", "50m")
+	viper.SetDefault("sidecar.limitsCPU", "500m")
+	viper.SetDefault("requestsMemory", "128Mi")
+	viper.SetDefault("sidecar.limitsMemory", "512Mi")
+	viper.SetDefault("sidecar.volumeName", "config")
+	viper.SetDefault("sidecar.volumeMount", "/fluent-bit/etc/")
+	viper.SetDefault("sidecar.readOnly", true)
 	return &sidecar{
 		Name:            viper.GetString("sidecar.name"),
 		Image:           viper.GetString("sidecar.image"),
 		ImagePullPolicy: viper.GetString("sidecar.imagePullPolicy"),
 		RequestsCPU:     viper.GetString("sidecar.requestsCPU"),
 		RequestsMemory:  viper.GetString("sidecar.requestsMemory"),
+		LimitCPU:        viper.GetString("sidecar.limitsCPU"),
+		LimitMemory:     viper.GetString("sidecar.limitsMemory"),
 		VolumeName:      viper.GetString("sidecar.volumeName"),
 		VolumeMount:     viper.GetString("sidecar.volumeMount"),
 		ReadOnly:        viper.GetBool("sidecar.readOnly"),
@@ -139,6 +147,10 @@ func NewDeploymentWhiteList(viper *viper.Viper) *deploymentWhiteList {
 
 // NewFluentBitConfig 获取FluentBit配置方法
 func NewFluentBitConfig(viper *viper.Viper) *fluentBitConfig {
+	// 设置默认值
+	viper.SetDefault("fluentBit.serviceLogLevel", "info")
+	viper.SetDefault("fluentBit.inputMemBufLimit", "20MB")
+	viper.SetDefault("fluentBit.inputRefreshInterval", 20)
 	return &fluentBitConfig{
 		ServiceLogLevel:      viper.GetString("fluentBit.serviceLogLevel"),
 		InputMemBufLimit:     viper.GetString("fluentBit.inputMemBufLimit"),
