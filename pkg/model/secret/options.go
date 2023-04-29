@@ -101,22 +101,22 @@ const (
 	HC_Period 5
 	Log_Level {{.ServiceLogLevel}}
 [INPUT]
-    Name tail
-    Path {{.InputLogPath}}/*.logging
-    Parser docker
-    Tag {{.InputAppName}}.logging
-    DB /var/logging/{{.InputAppName}}/flb-db
-    Mem_Buf_Limit {{.InputMemBufLimit}}
-    Skip_Long_Lines On
-    Refresh_Interval {{.InputRefreshInterval}}
+	Name tail
+	Path {{.InputLogPath}}/*.logging
+	Parser docker
+	Tag {{.InputAppName}}.logging
+	DB /var/logging/{{.InputAppName}}/flb-db
+	Mem_Buf_Limit {{.InputMemBufLimit}}
+	Skip_Long_Lines On
+	Refresh_Interval {{.InputRefreshInterval}}
 [OUTPUT]
-    Name es
-    Match {{.InputAppName}}.logging
-    Host {{.OutputEsHost}}
-    Port {{.OutputEsPort}}
-    Index {{.OutputEsIndex}}
-    User {{.OutputEsUser}}
-    Password {{.OutputEsPassword}}
+	Name es
+	Match {{.InputAppName}}.logging
+	Host {{.OutputEsHost}}
+	Port {{.OutputEsPort}}
+	Index {{.OutputEsIndex}}
+	User {{.OutputEsUser}}
+	Password {{.OutputEsPassword}}
 `
 )
 

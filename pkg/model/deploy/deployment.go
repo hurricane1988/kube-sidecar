@@ -67,7 +67,7 @@ func AddDeploymentSidecar(deployment *appsv1.Deployment, client k8s.Client) erro
 			deployment.Annotations["deployment.kubernetes.io/sidecar.inputMemBufLimit"],
 			c.FluentBitConfig.InputMemBufLimit), InputRefreshInterval: interval,
 		OutputEsHost:        deployment.Annotations["deployment.kubernetes.io/sidecar.outputEsHost"],
-		OutputEsPort:        deployment.Annotations["deployment.kubernetes.io/sidecar.outputEsHost"],
+		OutputEsPort:        deployment.Annotations["deployment.kubernetes.io/sidecar.outputEsPort"],
 		OutputEsIndex:       deployment.Annotations["deployment.kubernetes.io/sidecar.outputEsIndex"],
 		OutputEsUser:        deployment.Annotations["deployment.kubernetes.io/sidecar.outputEsUser"],
 		OutputEsPassword:    deployment.Annotations["deployment.kubernetes.io/sidecar.outputEsPassword"],
