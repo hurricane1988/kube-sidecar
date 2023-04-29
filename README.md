@@ -9,3 +9,5 @@ deployment.kubernetes.io/sidecar: 'true'
 - [x] [[FluentBit文档中心]](https://fluentbit.io/)
 - [x] [[fluent-bit helm chart]](https://github.com/fluent/helm-charts/tree/main/charts/fluent-bit)
 - [x] [[参考配置]](https://clickvisual.gocn.vip/clickvisual/07collect/fluent-bit-configuration-reference.html#_2-3-input-kubernetes-conf-%E9%85%8D%E7%BD%AE)
+
+![deploy](./docs/images/deploy-architecture.png)
