@@ -23,10 +23,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 	"strconv"
+	"strings"
 
 	"kube-sidecar/config"
 	"kube-sidecar/pkg/model/container"
-	sc "kube-sidecar/pkg/model/secret"
+	s "kube-sidecar/pkg/model/secret"
 	"kube-sidecar/utils/tools"
 
 	lg "kube-sidecar/utils/logging"
@@ -42,51 +43,61 @@ const (
 // AddDeploymentSidecar 为deployment添加sidecar容器方法
 func AddDeploymentSidecar(deployment *appsv1.Deployment, client k8s.Client) error {
 	// 定义全局错误信息
-	var errMsg error
+	var (
+		errMsg error
+		c      = config.Config
+	)
 	// 创建sidecar容器对象
 	sidecar := container.CreateContainer()
 	// 增加sidecar容器到deployment
 	deployment.Spec.Template.Spec.Containers = append(deployment.Spec.Template.Spec.Containers, *sidecar)
 	// 获取sidecar 后端存储类型
-	interval, _ := strconv.Atoi(deployment.Annotations["deployment.kubernetes.io/sidecar.inputRefreshInterval"])
-	fluentbit := sc.FluentBitConf{
-		ServiceLogLevel:      deployment.Annotations["deployment.kubernetes.io/sidecar.serviceLogLevel"],
-		InputAppName:         deployment.Name,
-		InputLogPath:         deployment.Annotations["deployment.kubernetes.io/sidecar.inputLogPath"],
-		InputAppTag:          deployment.Name,
-		InputMemBufLimit:     deployment.Annotations["deployment.kubernetes.io/sidecar.inputMemBufLimit"],
-		InputRefreshInterval: interval,
-		OutputEsHost:         deployment.Annotations["deployment.kubernetes.io/sidecar.outputEsHost"],
-		OutputEsPort:         deployment.Annotations["deployment.kubernetes.io/sidecar.outputEsHost"],
-		OutputEsIndex:        deployment.Annotations["deployment.kubernetes.io/sidecar.outputEsIndex"],
-		OutputEsUser:         deployment.Annotations["deployment.kubernetes.io/sidecar.outputEsUser"],
-		OutputEsPassword:     deployment.Annotations["deployment.kubernetes.io/sidecar.outputEsPassword"],
-		OutputKafkaHost:      deployment.Annotations["deployment.kubernetes.io/sidecar.outputKafkaHost"],
-		OutputKafkaPort:      deployment.Annotations["deployment.kubernetes.io/sidecar.outputKafkaPort"],
-		OutputKafkaTopic:     deployment.Annotations["deployment.kubernetes.io/sidecar.outputKafkaTopic"],
-		OutputKafkaUser:      deployment.Annotations["deployment.kubernetes.io/sidecar.outputKafkaUser"],
-		OutputKafkaPassword:  deployment.Annotations["deployment.kubernetes.io/sidecar.outputKafkaPassword"],
+	interval, _ := strconv.Atoi(tools.SetDefaultValueNotExist(
+		deployment.Annotations["deployment.kubernetes.io/sidecar.inputRefreshInterval"],
+		string(rune(c.FluentBitConfig.InputRefreshInterval))))
+
+	fluent := s.FluentBitConf{
+		ServiceLogLevel: tools.SetDefaultValueNotExist(
+			deployment.Annotations["deployment.kubernetes.io/sidecar.serviceLogLevel"],
+			c.FluentBitConfig.ServiceLogLevel),
+		InputAppName: deployment.Name,
+		InputLogPath: deployment.Annotations["deployment.kubernetes.io/sidecar.inputLogPath"],
+		// InputAppTag:  deployment.Name,
+		InputMemBufLimit: tools.SetDefaultValueNotExist(
+			deployment.Annotations["deployment.kubernetes.io/sidecar.inputMemBufLimit"],
+			c.FluentBitConfig.InputMemBufLimit), InputRefreshInterval: interval,
+		OutputEsHost:        deployment.Annotations["deployment.kubernetes.io/sidecar.outputEsHost"],
+		OutputEsPort:        deployment.Annotations["deployment.kubernetes.io/sidecar.outputEsHost"],
+		OutputEsIndex:       deployment.Annotations["deployment.kubernetes.io/sidecar.outputEsIndex"],
+		OutputEsUser:        deployment.Annotations["deployment.kubernetes.io/sidecar.outputEsUser"],
+		OutputEsPassword:    deployment.Annotations["deployment.kubernetes.io/sidecar.outputEsPassword"],
+		OutputKafkaHost:     deployment.Annotations["deployment.kubernetes.io/sidecar.outputKafkaHost"],
+		OutputKafkaPort:     deployment.Annotations["deployment.kubernetes.io/sidecar.outputKafkaPort"],
+		OutputKafkaTopic:    deployment.Annotations["deployment.kubernetes.io/sidecar.outputKafkaTopic"],
+		OutputKafkaUser:     deployment.Annotations["deployment.kubernetes.io/sidecar.outputKafkaUser"],
+		OutputKafkaPassword: deployment.Annotations["deployment.kubernetes.io/sidecar.outputKafkaPassword"],
 	}
+	// 获取fluentBit output类型
 	backendType := deployment.Annotations["deployment.kubernetes.io/sidecar.backend"]
 	// 基于backendType创建不同的secret配置
-	err := sc.CreateFluentBitSecret(backendType, deployment.Name, deployment.Namespace, client, fluentbit)
+	err := s.CreateFluentBitSecret(backendType, deployment.Name, deployment.Namespace, client, fluent)
 	if err != nil {
 		lg.Logger.Error(err.Error())
 		errMsg = err
 	}
 	// 创建secret volume对象
 	secretVolume := corev1.Volume{
-		Name: "fluentbit-config",
+		Name: c.Sidecar.VolumeName,
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
-				SecretName: deployment.Name,
+				SecretName: strings.Join([]string{deployment.Name, "sidecar"}, "-"),
 			},
 		},
 	}
 	// 添加卷至Deployment
 	deployment.Spec.Template.Spec.Volumes = append(deployment.Spec.Template.Spec.Volumes, secretVolume)
 	// 更新Deployment object添加新的sidecar容器和卷
-	_, err = client.Kubernetes().AppsV1().Deployments(deployment.Name).Update(context.TODO(), deployment, metav1.UpdateOptions{})
+	_, err = client.Kubernetes().AppsV1().Deployments(deployment.Namespace).Update(context.TODO(), deployment, metav1.UpdateOptions{})
 	if err != nil {
 		lg.Logger.Error("更新deployment " + deployment.Name + "失败,错误信息," + err.Error())
 		errMsg = err
@@ -99,7 +110,7 @@ func AddDeploymentSidecar(deployment *appsv1.Deployment, client k8s.Client) erro
 func WatchDeployment(client k8s.Client) {
 	// 定义全局Deployment对象
 	var (
-		cf = config.Config
+		c = config.Config
 	)
 	// 创建watchInterface接口
 	watchInterface, err := client.Kubernetes().AppsV1().Deployments("").Watch(context.TODO(), metav1.ListOptions{})
@@ -115,8 +126,8 @@ func WatchDeployment(client k8s.Client) {
 			// 检查deployment是否有required annotation
 			annotations := dp.GetAnnotations()
 			if annotations[annotationKey] == "true" && tools.WhetherExists(
-				dp.Namespace, cf.NamespacesWhiteList.Names) == false && tools.WhetherExists(
-				dp.Name, cf.DeploymentWhiteList.Names) == false {
+				dp.Namespace, c.NamespacesWhiteList.Names) == false && tools.WhetherExists(
+				dp.Name, c.DeploymentWhiteList.Names) == false {
 				// 执行自动添加sidecar容器
 				err = AddDeploymentSidecar(dp, client)
 				if err != nil {

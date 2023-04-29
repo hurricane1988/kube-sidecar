@@ -4,19 +4,17 @@ logging:
   filename: kube-sidecar.log
   writeLog: false
   maxSize: 10
-  maxBackups: 30
+  maxBackups: 40
   maxAge: 10
 # 便车容器相关
 sidecar:
-  name: log-sidecar01
+  name: sidecar
   image: fluent/fluent-bit:2.1.0
   imagePullPolicy: IfNotPresent
   requestsCPU: 250m
   requestsMemory: 512Mi
   limitsCPU: 250m
   limitsMemory: 512Mi
-  volumeName: config
-  volumeMount: /fluent-bit/etc/
   readOnly: true
 # 配置fluentBit
 fluentBit:

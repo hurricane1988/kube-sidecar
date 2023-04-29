@@ -20,6 +20,7 @@ import (
 	"context"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	"strings"
 
 	lg "kube-sidecar/utils/logging"
 
@@ -37,7 +38,7 @@ func CreateFluentBitSecret(backend, name, namespace string, client k8s.Client, f
 	// 创建一个新的secret对象
 	newSecret := &corev1.Secret{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      name,
+			Name:      strings.Join([]string{name, "sidecar"}, "-"),
 			Namespace: namespace,
 		},
 		Data: map[string][]byte{
@@ -49,10 +50,7 @@ func CreateFluentBitSecret(backend, name, namespace string, client k8s.Client, f
 	if err != nil {
 		lg.Logger.Error(err.Error())
 	}
-	if err != nil {
-		lg.Logger.Error(err.Error())
-	}
-	lg.Logger.Info("namespace " + createdSecret.Namespace + "创建secret" + createdSecret.Name + "成功!")
+	lg.Logger.Info("namespace " + createdSecret.Namespace + "创建secret " + createdSecret.Name + "成功!")
 	return nil
 }
 

@@ -24,3 +24,13 @@ func WhetherExists(key string, slice []string) bool {
 	}
 	return m[key]
 }
+
+// SetDefaultValueNotExist 实现读取annotations值并默认值
+func SetDefaultValueNotExist(key string, defaultValue string) string {
+	switch key {
+	case "":
+		return defaultValue
+	default:
+		return key
+	}
+}

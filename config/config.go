@@ -112,14 +112,14 @@ func NewLogging(viper *viper.Viper) *logging {
 // NewSidecar sidecar容器配置
 func NewSidecar(viper *viper.Viper) *sidecar {
 	// 设置默认值
-	viper.SetDefault("sidecar.name", "log-sidecar")
+	viper.SetDefault("sidecar.name", "sidecar")
 	viper.SetDefault("sidecar.imagePullPolicy", "Always")
 	viper.SetDefault("sidecar.requestsCPU", "50m")
 	viper.SetDefault("sidecar.limitsCPU", "500m")
 	viper.SetDefault("requestsMemory", "128Mi")
 	viper.SetDefault("sidecar.limitsMemory", "512Mi")
-	viper.SetDefault("sidecar.volumeName", "config")
-	viper.SetDefault("sidecar.volumeMount", "/fluent-bit/etc/")
+	viper.SetDefault("sidecar.volumeName", "sidecar-config")
+	viper.SetDefault("sidecar.volumeMount", "/fluent-bit/config")
 	viper.SetDefault("sidecar.readOnly", true)
 	return &sidecar{
 		Name:            viper.GetString("sidecar.name"),

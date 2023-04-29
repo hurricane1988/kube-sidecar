@@ -1,0 +1,105 @@
+# 创建pvc
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: es-store
+  namespace: default
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 1Gi
+---
+# configmap相关
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: es-config
+  namespace: default
+data:
+  elasticsearch.yml: |
+    # Elasticsearch 集群的名称
+    cluster.name: es-cluster
+    # Elasticsearch 节点的名称
+    node.name: node-1
+    # 启用 Elasticsearch 安全功能
+    xpack.security.enabled: true
+    # 是否启用 TLS/SSL 加密通信
+    #xpack.security.http.ssl.enabled: true
+    # 指定 TLS/SSL 加密通信的证书文件路径
+    #xpack.security.http.ssl.keystore.path: /path/to/keystore.jks
+    # 指定 TLS/SSL 加密通信的证书密码
+    #xpack.security.http.ssl.keystore.password: my_password
+    # 是否允许在一个节点上运行多个 Elasticsearch 实例
+    # 自定义插件路径
+    #path.plugins: /path/to/plugins
+    node.max_local_storage_nodes: 1
+    # Elasticsearch 监听的网络地址。默认值是 localhost，表示只能本机访问。如果需要在多台机器上访问，需要设置为相应的 IP 地址或者 0.0.0.0
+    network.host: 0.0.0.0
+    # Elasticsearch 监听的 HTTP 端口号。默认值是 9200
+    http.port: 9200
+    # 用于发现其他节点的地址列表
+    discovery.seed_hosts: ["127.0.0.1", "[::1]"]
+    # 指定最初的主节点列表，用于集群的初始化
+    cluster.initial_master_nodes: ["es-node-1"]
+    # 分片副本数量
+    index.number_of_replicas: 1
+    # 分片数量
+    index.number_of_shards: 5
+    # 索引的默认分片和副本数量
+    index:
+    default:
+      number_of_shards: 1
+      number_of_replicas: 1
+    http.cors.enabled: true
+    http.cors.allow-origin: /.*/
+    # 日志级别
+    logger.org.elasticsearch: INFO
+---
+# deployment相关
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: elasticsearch
+spec:
+  selector:
+    matchLabels:
+      name: elasticsearch
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        name: elasticsearch
+    spec:
+      containers:
+        - name: elasticsearch
+          image: elasticsearch:7.17.3
+          imagePullPolicy: IfNotPresent
+          resources:
+            limits:
+              cpu: 1000m
+              memory: 2Gi
+            requests:
+              cpu: 100m
+              memory: 512Mi
+          env:
+            - name: ES_JAVA_OPTS
+              value: -Xms512m -Xmx512m
+          ports:
+            - containerPort: 9200
+            - containerPort: 9300
+          volumeMounts:
+            - name: elasticsearch-data
+              mountPath: /usr/share/elasticsearch/data/
+            - name: es-config
+              mountPath: /usr/share/elasticsearch/config/elasticsearch.yml
+              subPath: elasticsearch.yml
+      volumes:
+        - name: elasticsearch-data
+          persistentVolumeClaim:
+            claimName: es-store
+        - name: es-config
+          configMap:
+            name: es-config
+
