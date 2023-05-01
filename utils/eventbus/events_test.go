@@ -14,18 +14,26 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package eventbus
 
-func main() {
-	// options := k8s.NewKubernetesOptions()
-	// client, _ := k8s.NewKubernetesClient(options)
-	// // a, _ := json.MarshalIndent(config.Config, "", " ")
-	// // fmt.Println(string(a))
-	// deploy.WatchDeployment(client)
-	// podList, _ := client.Kubernetes().CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{})
-	//
-	// for _, pod := range podList.Items {
-	// 	fmt.Println(pod.Name, pod.Namespace)
-	// }
+import (
+	"fmt"
+	"testing"
+	"time"
+)
 
+func TestNewEventBus(t *testing.T) {
+	q := NewEventBus()
+	q.Add("name", time.Second*10)
+	q.Add("This is a test event unit", time.Minute*3)
+
+	for !q.IsEmpty() {
+		item, err := q.Remove()
+		if err != nil {
+			fmt.Println("Error removing item from queue:", err)
+			break
+		}
+		fmt.Println("Got item from queue:", item)
+		time.Sleep(time.Second) // Simulate processing time
+	}
 }
