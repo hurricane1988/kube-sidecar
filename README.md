@@ -1,4 +1,4 @@
-## kubernetes deployment 便车容器自动注入
+## kubernetes deployment 边车容器自动注入
 > kube-sidecar是以fluentBit为日志采集方案，结合kubernetes sidecar概念，实现创建根据如下deployment的注释，自动添加sidecar日志采集容器
 - [x] 为deployment设置是否开启sidecar注释
 ```yaml
