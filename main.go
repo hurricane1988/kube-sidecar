@@ -16,16 +16,20 @@ limitations under the License.
 
 package main
 
+import (
+	"kube-sidecar/pkg/model/deploy"
+	"kube-sidecar/utils/clients/k8s"
+)
+
 func main() {
-	// options := k8s.NewKubernetesOptions()
-	// client, _ := k8s.NewKubernetesClient(options)
-	// // a, _ := json.MarshalIndent(config.Config, "", " ")
-	// // fmt.Println(string(a))
-	// deploy.WatchDeployment(client)
+	options := k8s.NewKubernetesOptions()
+	client, _ := k8s.NewKubernetesClient(options)
+	// a, _ := json.MarshalIndent(config.Config, "", " ")
+	// fmt.Println(string(a))
+	deploy.WatchDeployment(client)
 	// podList, _ := client.Kubernetes().CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{})
 	//
 	// for _, pod := range podList.Items {
 	// 	fmt.Println(pod.Name, pod.Namespace)
 	// }
-
 }

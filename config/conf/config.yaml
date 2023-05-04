@@ -28,6 +28,7 @@ fluentBit:
 namespacesWhiteList:
   - kube-system
   - kube-public
+  - default
   - kube-node-lease
   - weave
   - kubesphere-logging-system

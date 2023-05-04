@@ -16,6 +16,12 @@ limitations under the License.
 
 package tools
 
+import (
+	appsv1 "k8s.io/api/apps/v1"
+
+	lg "kube-sidecar/utils/logging"
+)
+
 // WhetherExists 检查某个字符是否在slice切片中
 func WhetherExists(key string, slice []string) bool {
 	m := make(map[interface{}]bool)
@@ -33,4 +39,38 @@ func SetDefaultValueNotExist(key string, defaultValue string) string {
 	default:
 		return key
 	}
+}
+
+// WorkloadContainerNames 获取工作负载Deployment\StatefulSet\DaemonSet的所有containers名称
+func WorkloadContainerNames(objType string, object interface{}) []string {
+	var (
+		names []string
+	)
+	switch objType {
+	case "DaemonSet":
+		obj, ok := object.(*appsv1.DaemonSet)
+		if !ok {
+			lg.Logger.Error("对象转为Deployment失败,错误信息")
+		}
+		for _, dp := range obj.Spec.Template.Spec.Containers {
+			names = append(names, dp.Name)
+		}
+	case "StatefulSet":
+		obj, ok := object.(*appsv1.StatefulSet)
+		if !ok {
+			lg.Logger.Error("对象转为StatefulSet失败,错误信息")
+		}
+		for _, dp := range obj.Spec.Template.Spec.Containers {
+			names = append(names, dp.Name)
+		}
+	default:
+		obj, ok := object.(*appsv1.Deployment)
+		if !ok {
+			lg.Logger.Error("对象转为Deployment失败,错误信息")
+		}
+		for _, dp := range obj.Spec.Template.Spec.Containers {
+			names = append(names, dp.Name)
+		}
+	}
+	return names
 }
