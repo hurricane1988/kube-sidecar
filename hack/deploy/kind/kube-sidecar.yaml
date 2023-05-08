@@ -1,0 +1,208 @@
+---
+# 创建clusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kube-sidecar
+  annotations:
+    kubernetes.io/release-name: kube-sidecar
+    kubernetes.io/group-by: qkp
+rules:
+  - apiGroups: [""]
+    resources:
+      - secrets
+      - deployments
+      - pods
+    verbs:
+      - get
+      - watch
+      - list
+      - create
+      - update
+---
+# 创建clusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kube-sidecar
+  annotations:
+    kubernetes.io/release-name: kube-sidecar
+    kubernetes.io/group-by: qkp
+subjects:
+  - kind: ServiceAccount
+    name: kube-sidecar
+roleRef:
+  kind: ClusterRole
+  name: kube-sidecar
+  apiGroup: rbac.authorization.k8s.io
+
+# 创建ServiceAccount
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kube-sidecar
+  annotations:
+    kubernetes.io/release-name: kube-sidecar
+    kubernetes.io/group-by: qkp
+
+# 创建configmap
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kube-sidecar
+  namespace: kube-system
+  labels:
+    app: kube-sidecar
+  annotations:
+    kubernetes.io/release-name: kube-sidecar
+    kubernetes.io/group-by: qkp
+data:
+  config.yaml: |-
+    # 日志配置
+    logging:
+      logPath: /tmp
+      filename: kube-sidecar.log
+      writeLog: true
+      maxSize: 10
+      maxBackups: 40
+      maxAge: 10
+    # 便车容器相关
+    sidecar:
+      name: sidecar
+      image: fluent/fluent-bit:2.1.0
+      imagePullPolicy: IfNotPresent
+      requestsCPU: 250m
+      requestsMemory: 512Mi
+      limitsCPU: 250m
+      limitsMemory: 512Mi
+      readOnly: true
+    # 配置fluentBit
+    fluentBit:
+      # fluentBit日志level,默认info"
+      serviceLogLevel: info
+      # 采集日志缓存大小
+      inputMemBufLimit: 20MB
+      # 采集日志刷新间隔
+      inputRefreshInterval: 20
+    # namespace白名单
+    namespacesWhiteList:
+      - kube-system
+      - kube-public
+      - kube-node-lease
+      - weave
+      - kubesphere-logging-system
+      - fc-monitoring-system
+      - istio-system
+      - kubesphere-system
+      - kubesphere-controls-system
+      - kubesphere-monitoring-system
+      - kubesphere-devops-system
+      - kubesphere-monitoring-federated
+    # deployment白名单
+    deploymentWhiteList:
+      - coredns
+      - metrics-server
+
+# 创建Deployment
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kube-sidecar
+  namespace: kube-system
+  labels:
+    app: kube-sidecar
+  annotations:
+    kubernetes.io/release-name: kube-sidecar
+    kubernetes.io/group-by: qkp
+spec:
+  selector:
+    matchLabels:
+      app: kube-sidecar
+  template:
+    spec:
+      volumes:
+        - name: host-time
+          hostPath:
+            path: /etc/localtime
+            type: ''
+        - name: config
+          configMap:
+            name: kube-sidecar
+            defaultMode: 420
+      containers:
+        - name: kube-sidecar
+          imagePullPolicy: IfNotPresent
+          image: kube-sidecar:v0.0.1
+          command:
+            - kube-sidecar
+          args:
+            - start
+          env:
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            - name: NODE_IP
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: status.hostIP
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.nodeName
+          resources:
+            limits:
+              cpu: 100m
+              memory: 128Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          volumeMounts:
+            - name: host-time
+              readOnly: true
+              mountPath: /etc/localtime
+            - name: webhook-config
+              readOnly: true
+              mountPath: /opt/config/conf/
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 60
+      dnsPolicy: ClusterFirst
+      serviceAccountName: kube-sidecar
+      serviceAccount: kube-sidecar
+      securityContext: {}
+  revisionHistoryLimit: 30
+
+# 创建HPA弹性伸缩
+---
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: kube-sidecar
+  namespace: kube-system
+  labels:
+    app: kube-sidecar
+  annotations:
+    kubernetes.io/release-name: kube-sidecar
+    kubernetes.io/group-by: qkp
+spec:
+  minReplicas: 1
+  maxReplicas: 4
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: kube-sidecar
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu

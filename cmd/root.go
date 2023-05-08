@@ -26,11 +26,12 @@ import (
 var rootCmd = &cobra.Command{
 	Use:   "kube-sidecar",
 	Short: "kube-sidecar is a service that inject sidecar container into deployment.",
-	Long: `============================================================================================================
-        # Use watch method to watch the deployment when Annotations "deployment.kubernetes.io/sidecar": 'true'         #
-        # Create secret of FluentBit config and mount on sidecar container  automatically                              #
-        # Copyright 2023 QiMing Kubernetes Platform Authors                                                            #
-        ============================================================================================================`,
+	Long: `
+===========================================================================================================
+# Use watch method to watch the deployment when Annotations "deployment.kubernetes.io/sidecar": 'true'     #
+# Create secret of FluentBit config and mount on sidecar container  automatically                          #
+# Copyright 2023 QiMing Kubernetes Platform Authors                                                        #
+===========================================================================================================`,
 	Run: func(cmd *cobra.Command, args []string) {
 	},
 }

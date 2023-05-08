@@ -112,6 +112,21 @@ func NewLogging(viper *viper.Viper) *logging {
 	}
 }
 
+// NewJaegerConfig jaeger链路跟踪配置
+func NewJaegerConfig(viper *viper.Viper) *jaeger {
+	// 设置默认值
+	viper.SetDefault("jaeger.scheme", "http")
+	viper.SetDefault("jaeger.host", "localhost")
+	viper.SetDefault("jaeger.port", 14268)
+	viper.SetDefault("jaeger.path", "api/traces")
+	return &jaeger{
+		Scheme: viper.GetString("jaeger.scheme"),
+		Host:   viper.GetString("jaeger.host"),
+		Port:   viper.GetInt("jaeger.port"),
+		Path:   viper.GetString("jaeger.path"),
+	}
+}
+
 // NewSidecar sidecar容器配置
 func NewSidecar(viper *viper.Viper) *sidecar {
 	// 设置默认值

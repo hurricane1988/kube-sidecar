@@ -6,6 +6,12 @@ logging:
   maxSize: 10
   maxBackups: 40
   maxAge: 10
+# jaeger链路跟踪相关
+jaeger:
+  scheme: http
+  host: localhost
+  port: 14268
+  path: api/traces
 # 便车容器相关
 sidecar:
   name: sidecar

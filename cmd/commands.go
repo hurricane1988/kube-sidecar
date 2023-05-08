@@ -20,9 +20,10 @@ import (
 	"github.com/spf13/cobra"
 
 	"kube-sidecar/config"
-	"kube-sidecar/pkg/model/deploy"
+	"kube-sidecar/pkg/controller/deploy"
 	"kube-sidecar/utils/clients/k8s"
 	lg "kube-sidecar/utils/logging"
+	"kube-sidecar/utils/tools"
 )
 
 // StartKubeSidecar 启动kube-sideacar服务
@@ -43,6 +44,8 @@ var StartKubeSidecar = &cobra.Command{
 		if param != "start" {
 			lg.Logger.Error("输入参数错误")
 		}
+		// 打印终端提示
+		tools.TerminalColor()
 		options := k8s.NewKubernetesOptions()
 		client, _ := k8s.NewKubernetesClient(options)
 		deploy.WatchDeployment(client)

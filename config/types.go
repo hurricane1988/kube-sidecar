@@ -19,6 +19,7 @@ package config
 // Config 定义全局config结构体
 type config struct {
 	LoggingConfig       logging             `json:"loggingConfig,omitempty" yaml:"loggingConfig,omitempty" xml:"loggingConfig,omitempty"`
+	JaegerConfig        jaeger              `yaml:"jaegerConfig,omitempty" xml:"jaegerConfig,omitempty" json:"jaegerConfig,omitempty"`
 	Sidecar             sidecar             `json:"sidecar,omitempty" yaml:"sidecar,omitempty" xml:"sidecar,omitempty"`
 	NamespacesWhiteList namespacesWhiteList `json:"namespacesWhiteList,omitempty" xml:"namespacesWhiteList,omitempty" yaml:"namespacesWhiteList,omitempty"`
 	DeploymentWhiteList deploymentWhiteList `json:"deploymentWhiteList,omitempty" xml:"deploymentWhiteList,omitempty" yaml:"deploymentWhiteList,omitempty"`
@@ -34,6 +35,14 @@ type logging struct {
 	MaxBackups int    `json:"maxBackups,omitempty" yaml:"maxBackups,omitempty" xml:"maxBackups,omitempty" description:"日志文件保留数量"`
 	MaxAge     int    `json:"maxAge,omitempty" yaml:"maxAge,omitempty" xml:"maxAge,omitempty" description:"日志文件保留天数"`
 	Filename   string `json:"filename,omitempty" yaml:"filename,omitempty" xml:"filename,omitempty" description:"日志文件名称"`
+}
+
+// jaeger链路跟踪相关、
+type jaeger struct {
+	Scheme string `yaml:"scheme,omitempty" xml:"scheme,omitempty" json:"scheme,omitempty"`
+	Host   string `json:"host,omitempty" yaml:"host,omitempty" xml:"host,omitempty"`
+	Port   int    `json:"port,omitempty" xml:"port,omitempty" yaml:"port,omitempty"`
+	Path   string `json:"path,omitempty" xml:"path,omitempty" yaml:"path,omitempty"`
 }
 
 // sidecar 定义sidecar容器配置信息
