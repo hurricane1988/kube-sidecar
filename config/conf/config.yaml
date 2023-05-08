@@ -2,7 +2,7 @@
 logging:
   logPath: /tmp
   filename: kube-sidecar.log
-  writeLog: false
+  writeLog: true
   maxSize: 10
   maxBackups: 40
   maxAge: 10
@@ -28,7 +28,6 @@ fluentBit:
 namespacesWhiteList:
   - kube-system
   - kube-public
-  - default
   - kube-node-lease
   - weave
   - kubesphere-logging-system

@@ -23,6 +23,7 @@ type config struct {
 	NamespacesWhiteList namespacesWhiteList `json:"namespacesWhiteList,omitempty" xml:"namespacesWhiteList,omitempty" yaml:"namespacesWhiteList,omitempty"`
 	DeploymentWhiteList deploymentWhiteList `json:"deploymentWhiteList,omitempty" xml:"deploymentWhiteList,omitempty" yaml:"deploymentWhiteList,omitempty"`
 	FluentBitConfig     fluentBitConfig     `json:"fluentBitConfig,omitempty" yaml:"fluentBitConfig,omitempty" xml:"fluentBitConfig,omitempty"`
+	Version             string              `json:"version,omitempty" xml:"version,omitempty" yaml:"version,omitempty"`
 }
 
 // Logging 日志日志结构体

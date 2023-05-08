@@ -84,12 +84,15 @@ func LoadConfigFromFile() (*config, error) {
 
 // NewConfig 创建默认的config
 func NewConfig(viper *viper.Viper) *config {
+	// 设置默认值
+	viper.SetDefault("version.version", "v0.0.1")
 	return &config{
 		LoggingConfig:       *NewLogging(viper),
 		Sidecar:             *NewSidecar(viper),
 		NamespacesWhiteList: *NewNamespacesWhiteList(viper),
 		DeploymentWhiteList: *NewDeploymentWhiteList(viper),
 		FluentBitConfig:     *NewFluentBitConfig(viper),
+		Version:             viper.GetString("version.version"),
 	}
 }
 
@@ -133,6 +136,11 @@ func NewSidecar(viper *viper.Viper) *sidecar {
 		VolumeMount:     viper.GetString("sidecar.volumeMount"),
 		ReadOnly:        viper.GetBool("sidecar.readOnly"),
 	}
+}
+
+// NewVersion 版本信息
+func NewVersion(viper *viper.Viper) {
+
 }
 
 // NewNamespacesWhiteList 获取NamespacesWhiteList配置方法
