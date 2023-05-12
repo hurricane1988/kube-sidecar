@@ -19,13 +19,15 @@ FROM alpine:3.17.3
 # 设置容器的健康检查
 # HEALTHCHECK --interval=5s --timeout=3s --retries=3 CMD curl -fs http://127.0.0.1:8080/ || exit 1
 # 安装基础命令工具
-# RUN apk add curl busybox-extras net-tools bind-tools ethtool -U tzdata
+RUN apk add --no-cache tzdata
 # 从编译阶段的中拷贝编译结果到当前镜像中
 COPY --from=builder /build/kube-sidecar /usr/local/bin/
+WORKDIR /
 # 拷贝配置文件到/目录
 COPY ./config/conf/config.yaml /opt/config/conf/config.yaml
-# 拷贝证书
-ADD ./config/cert /opt/config/cert
+COPY docker-entrypoint.sh /opt/docker-entrypoint.sh
+RUN chmod +x /root/docker-entrypoint.sh
 # 设置服务暴露端口
-WORKDIR /
+
+ENTRYPOINT  ["/opt/docker-entrypoint.sh"]
 CMD ["sh"]

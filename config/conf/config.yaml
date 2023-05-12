@@ -10,7 +10,7 @@ logging:
 jaeger:
   scheme: http
   host: localhost
-  port: 14268
+  port: 16686
   path: api/traces
 # 便车容器相关
 sidecar:

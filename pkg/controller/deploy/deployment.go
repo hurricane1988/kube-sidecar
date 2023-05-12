@@ -18,6 +18,8 @@ package deploy
 
 import (
 	"context"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
@@ -35,7 +37,12 @@ const (
 )
 
 // WatchDeployment watching kubernetes deployment changes
-func WatchDeployment(client k8s.Client) {
+func WatchDeployment(ctx context.Context, tracerName, spanName string, client k8s.Client) {
+	// 增加链路跟踪
+	tr := otel.Tracer(tracerName)
+	_, span := tr.Start(ctx, spanName)
+	span.SetAttributes(attribute.Key("update").String("deployment"))
+	defer span.End()
 	// 定义全局Deployment对象
 	var (
 		cfg = config.Config
