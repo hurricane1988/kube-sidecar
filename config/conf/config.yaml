@@ -8,8 +8,9 @@ logging:
   maxAge: 10
 # jaeger链路跟踪相关
 jaeger:
+  enable: true
   scheme: http
-  host: localhost
+  host: 10.133.53.98
   port: 16686
   path: api/traces
 # 便车容器相关
@@ -30,21 +31,22 @@ fluentBit:
   inputMemBufLimit: 20MB
   # 采集日志刷新间隔
   inputRefreshInterval: 20
-# namespace白名单
-namespacesWhiteList:
-  - kube-system
-  - kube-public
-  - kube-node-lease
-  - weave
-  - kubesphere-logging-system
-  - fc-monitoring-system
-  - istio-system
-  - kubesphere-system
-  - kubesphere-controls-system
-  - kubesphere-monitoring-system
-  - kubesphere-devops-system
-  - kubesphere-monitoring-federated
-# deployment白名单
-deploymentWhiteList:
-  - coredns
-  - metrics-server
+# 白名单
+whiteList:
+  namespaces:
+    - kube-system
+    - kube-public
+    - kube-node-lease
+    - weave
+    - kubesphere-logging-system
+    - fc-monitoring-system
+    - istio-system
+    - kubesphere-system
+    - kubesphere-controls-system
+    - kubesphere-monitoring-system
+    - kubesphere-devops-system
+    - kubesphere-monitoring-federated
+  deployments:
+    - coredns
+    - metrics-server
+

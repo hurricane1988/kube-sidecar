@@ -20,29 +20,57 @@ package opentelemetry
 
 import (
 	"context"
+	"fmt"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/jaeger"
 	"go.opentelemetry.io/otel/sdk/resource"
 	tracesdk "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
+	"kube-sidecar/pkg/clientset/fluent"
+	jg "kube-sidecar/pkg/clientset/jaeger"
+	"kube-sidecar/pkg/clientset/kubernetes"
+	lg "kube-sidecar/pkg/clientset/logging"
+	"kube-sidecar/pkg/clientset/sidecar"
+	"kube-sidecar/pkg/clientset/workload"
 	"log"
-	"strings"
+	"net/url"
 	"time"
 
-	"kube-sidecar/config"
-	lg "kube-sidecar/utils/logging"
+	"kube-sidecar/pkg/controller/deploy"
 )
 
-var (
-	jaegerConfig = config.Config.JaegerConfig
-)
+type openTelemetry struct {
+	K8sClient kubernetes.Client
+	FluentBit fluent.Options
+	Sidecar   sidecar.Options
+	Jeager    jg.Options
+	WhiteList workload.Options
+}
+
+type OpenTelemetry interface {
+	TracerProvider(service, environment string, id int64) (*tracesdk.TracerProvider, error)
+}
+
+func NewOpenTelemetry(k8sClient kubernetes.Client, fluentBit fluent.Options, sidecar sidecar.Options, jeager jg.Options, whiteList workload.Options) OpenTelemetry {
+	return &openTelemetry{
+		K8sClient: k8sClient,
+		FluentBit: fluentBit,
+		Sidecar:   sidecar,
+		Jeager:    jeager,
+		WhiteList: whiteList,
+	}
+}
 
 // TracerProvider 设置tracerProvider方法
-func TracerProvider(service, environment string, id int64) (*tracesdk.TracerProvider, error) {
-	endpoint := strings.Join([]string{jaegerConfig.Scheme, ":/", jaegerConfig.Host, string(rune(jaegerConfig.Port)), jaegerConfig.Path}, "/")
+func (o *openTelemetry) TracerProvider(service, environment string, id int64) (*tracesdk.TracerProvider, error) {
+	endpoint, _ := url.Parse(fmt.Sprintf("%s://%s", o.Jeager.Scheme, o.Jeager.Host))
+	// 添加端口号
+	endpoint.Host = fmt.Sprintf("%s:%s", o.Jeager.Host, o.Jeager.Port)
+	// 拼接路径
+	endpoint.Path += o.Jeager.Path
 	// Create the Jaeger exporter
-	exp, err := jaeger.New(jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(endpoint)))
+	exp, err := jaeger.New(jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(endpoint.String())))
 	if err != nil {
 		return nil, err
 	}
@@ -61,8 +89,8 @@ func TracerProvider(service, environment string, id int64) (*tracesdk.TracerProv
 }
 
 // RegisterGlobalTracerProvider 注册全局的tracerProvider
-func RegisterGlobalTracerProvider(tracerName, spanName, service, environment string, id int64, obj interface{}, Func func(obj ...interface{})) {
-	tp, err := TracerProvider(service, environment, id)
+func (o *openTelemetry) RegisterGlobalTracerProvider(tracerName, spanName, service, environment string, id int64) {
+	tp, err := o.TracerProvider(service, environment, id)
 	if err != nil {
 		lg.Logger.Error("初始化TracerProvider失败,错误信息" + err.Error())
 	}
@@ -82,9 +110,8 @@ func RegisterGlobalTracerProvider(tracerName, spanName, service, environment str
 	}(ctx)
 
 	tr := tp.Tracer(tracerName)
-
-	ctx, span := tr.Start(ctx, spanName)
+	_, span := tr.Start(ctx, spanName)
 	defer span.End()
 	// Context 向下传递
-	Func(ctx, tracerName, spanName, obj)
+	deploy.NewDeployment(o.K8sClient, o.FluentBit, o.Sidecar, o.Jeager, o.WhiteList).Watch(ctx, tracerName, spanName)
 }

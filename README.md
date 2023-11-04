@@ -3,6 +3,10 @@
 - [x] 为deployment设置是否开启sidecar注释
 ```yaml
 deployment.kubernetes.io/sidecar: 'true'
+deployment.kubernetes.io/sidecar.backend: elasticsearch
+deployment.kubernetes.io/sidecar.outputEsHost: localhost
+deployment.kubernetes.io/sidecar.outputEsPassword: password
+deployment.kubernetes.io/sidecar.outputEsUser: root
 ```
 > FluentBit相关
 - [x] [[FluentBit Github仓库]](https://github.com/fluent/fluent-bit)

@@ -17,13 +17,11 @@ limitations under the License.
 package cmd
 
 import (
-	"context"
 	"github.com/spf13/cobra"
-
 	"kube-sidecar/config"
-	"kube-sidecar/pkg/controller/deploy"
-	"kube-sidecar/utils/clients/k8s"
-	lg "kube-sidecar/utils/logging"
+	"kube-sidecar/pkg/clientset/kubernetes"
+	"kube-sidecar/pkg/clientset/logging"
+
 	ot "kube-sidecar/utils/opentelemetry"
 	"kube-sidecar/utils/tools"
 )
@@ -31,7 +29,6 @@ import (
 // StartKubeSidecar 启动kube-sideacar服务
 var StartKubeSidecar = &cobra.Command{
 	Use:              "start",
-	Version:          config.Config.Version,
 	Example:          "kube-sidecar start",
 	Short:            "Start the kube-sidecar service",
 	TraverseChildren: true,
@@ -42,7 +39,7 @@ var StartKubeSidecar = &cobra.Command{
 			spanName    string = "sidecar"
 			service     string = "kube-sidecar"
 			environment string = "qkp"
-			ctx                = context.Background()
+			id          int64  = tools.RandomInt64()
 		)
 		switch len(args) {
 		case 1:
@@ -51,16 +48,16 @@ var StartKubeSidecar = &cobra.Command{
 			param = "start"
 		}
 		if param != "start" {
-			lg.Logger.Error("输入参数错误")
+			logging.Logger.Error("输入参数错误")
 		}
 		// 打印终端提示
-		lg.Logger.Info("成功启动kube-sidecar监听服务")
+		logging.Logger.Info("成功启动kube-sidecar监听服务")
 		tools.TerminalColor()
+		cfg, _ := config.LoadConfigFromFile()
 		// 注册全局tracer
-		options := k8s.NewKubernetesOptions()
-		client, _ := k8s.NewKubernetesClient(options)
-		ot.RegisterGlobalTracerProvider()
-		deploy.WatchDeployment()
+		options := kubernetes.NewKubernetesOptions()
+		client, _ := kubernetes.NewKubernetesClient(options)
+		ot.NewOpenTelemetry(client, *cfg.FluentBitConfig, *cfg.Sidecar, *cfg.JaegerConfig, *cfg.WhiteList).TracerProvider(service, environment)
 	},
 }
 

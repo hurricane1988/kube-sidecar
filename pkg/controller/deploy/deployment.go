@@ -23,11 +23,13 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
-
-	"kube-sidecar/config"
+	"kube-sidecar/pkg/clientset/fluent"
+	"kube-sidecar/pkg/clientset/jaeger"
+	"kube-sidecar/pkg/clientset/kubernetes"
+	lg "kube-sidecar/pkg/clientset/logging"
+	"kube-sidecar/pkg/clientset/sidecar"
+	"kube-sidecar/pkg/clientset/workload"
 	"kube-sidecar/pkg/model/deploy"
-	"kube-sidecar/utils/clients/k8s"
-	lg "kube-sidecar/utils/logging"
 	"kube-sidecar/utils/tools"
 )
 
@@ -36,19 +38,40 @@ const (
 	annotationKey = "deployment.kubernetes.io/sidecar"
 )
 
-// WatchDeployment watching kubernetes deployment changes
-func WatchDeployment(ctx context.Context, tracerName, spanName string, client k8s.Client) {
+type deployment struct {
+	K8sClient kubernetes.Client
+	FluentBit fluent.Options
+	Sidecar   sidecar.Options
+	Jeager    jaeger.Options
+	WhiteList workload.Options
+}
+
+type Deployment interface {
+	Watch(ctx context.Context, tracerName, spanName string)
+}
+
+func NewDeployment(k8sClient kubernetes.Client, fluentBit fluent.Options, sidecar sidecar.Options, jeager jaeger.Options, whiteList workload.Options) Deployment {
+	return &deployment{
+		K8sClient: k8sClient,
+		FluentBit: fluentBit,
+		Sidecar:   sidecar,
+		Jeager:    jeager,
+		WhiteList: whiteList,
+	}
+}
+
+// Watch watching kubernetes deployment changes
+func (d *deployment) Watch(ctx context.Context, tracerName, spanName string) {
 	// 增加链路跟踪
-	tr := otel.Tracer(tracerName)
-	_, span := tr.Start(ctx, spanName)
-	span.SetAttributes(attribute.Key("update").String("deployment"))
-	defer span.End()
-	// 定义全局Deployment对象
-	var (
-		cfg = config.Config
-	)
+	if d.Jeager.Enable {
+		tr := otel.Tracer(tracerName)
+		_, span := tr.Start(ctx, spanName)
+		span.SetAttributes(attribute.Key("update").String("deployment"))
+		lg.Logger.Info("添加trace链路跟踪成功")
+		defer span.End()
+	}
 	// 创建watchInterface接口
-	watchInterface, err := client.Kubernetes().AppsV1().Deployments("").Watch(context.TODO(), metav1.ListOptions{})
+	watchInterface, err := d.K8sClient.Kubernetes().AppsV1().Deployments("").Watch(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		lg.Logger.Error("创建Deployment的watch失败,错误信息" + err.Error())
 	}
@@ -62,13 +85,13 @@ func WatchDeployment(ctx context.Context, tracerName, spanName string, client k8
 			annotations := dp.GetAnnotations()
 			if annotations[annotationKey] == "true" &&
 				// 判断该工作负载是否已经在namespace白名单中
-				tools.WhetherExists(dp.Namespace, cfg.NamespacesWhiteList.Names) == false &&
+				tools.WhetherExists(dp.Namespace, d.WhiteList.Namespaces) == false &&
 				// 判断该工作负载是否已经在deployment白名单中
-				tools.WhetherExists(dp.Name, cfg.DeploymentWhiteList.Names) == false &&
+				tools.WhetherExists(dp.Name, d.WhiteList.Deployments) == false &&
 				// 判断该deployment是否已经注入sidecar容器
-				tools.WhetherExists(cfg.Sidecar.Name, tools.WorkloadContainerNames("Deployment", event.Object)) == false {
+				tools.WhetherExists(d.Sidecar.Name, tools.WorkloadContainerNames("Deployment", event.Object)) == false {
 				// 执行自动添加sidecar容器
-				err = deploy.AddDeploymentSidecar(dp, client)
+				err = deploy.NewDeploy(d.K8sClient, d.FluentBit).AddSidecar(dp)
 				if err != nil {
 					lg.Logger.Error(dp.Name + " 自动添加sidecar容器镜像失败,错误信息," + err.Error())
 				}

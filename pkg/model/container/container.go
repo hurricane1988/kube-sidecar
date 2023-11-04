@@ -19,32 +19,44 @@ package container
 import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-
-	"kube-sidecar/config"
+	"kube-sidecar/pkg/clientset/sidecar"
 )
 
-// CreateContainer 创建容器方法
-func CreateContainer() *corev1.Container {
-	sidecar := config.Config.Sidecar
+type container struct {
+	sidecar sidecar.Options
+}
+
+type Container interface {
+	Create() *corev1.Container
+}
+
+func NewContainer(sidecar sidecar.Options) Container {
+	return &container{
+		sidecar: sidecar,
+	}
+}
+
+// Create 创建容器方法
+func (s *container) Create() *corev1.Container {
 	return &corev1.Container{
-		Name:            sidecar.Name,
-		Image:           sidecar.Image,
-		ImagePullPolicy: corev1.PullPolicy(sidecar.ImagePullPolicy),
+		Name:            s.sidecar.Name,
+		Image:           s.sidecar.Image,
+		ImagePullPolicy: corev1.PullPolicy(s.sidecar.ImagePullPolicy),
 		VolumeMounts: []corev1.VolumeMount{
 			{
-				Name:      sidecar.VolumeName,
-				MountPath: sidecar.VolumeMount,
+				Name:      s.sidecar.VolumeName,
+				MountPath: s.sidecar.VolumeMount,
 			},
 		},
 		// 设置容器的resource资源
 		Resources: corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse(sidecar.RequestsCPU),
-				corev1.ResourceMemory: resource.MustParse(sidecar.RequestsMemory),
+				corev1.ResourceCPU:    resource.MustParse(s.sidecar.RequestsCPU),
+				corev1.ResourceMemory: resource.MustParse(s.sidecar.RequestsMemory),
 			},
 			Limits: corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse(sidecar.LimitCPU),
-				corev1.ResourceMemory: resource.MustParse(sidecar.LimitMemory),
+				corev1.ResourceCPU:    resource.MustParse(s.sidecar.LimitCPU),
+				corev1.ResourceMemory: resource.MustParse(s.sidecar.LimitMemory),
 			},
 		},
 	}

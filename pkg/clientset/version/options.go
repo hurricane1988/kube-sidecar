@@ -14,4 +14,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package config
+package version
+
+type Options struct {
+	GitVersion   string `json:"gitVersion,omitempty" xml:"gitVersion,omitempty" yaml:"gitVersion,omitempty"`
+	GoVersion    string `json:"goVersion,omitempty" xml:"goVersion,omitempty" yaml:"goVersion,omitempty"`
+	BuildVersion string `json:"buildVersion,omitempty" xml:"buildVersion,omitempty" yaml:"buildVersion,omitempty"`
+}
+
+// NewVersionOptions 版本信息
+func NewVersionOptions() *Options {
+	return &Options{
+		GitVersion:   "0.0.0",
+		GoVersion:    "1.21",
+		BuildVersion: "v1.0.0",
+	}
+}

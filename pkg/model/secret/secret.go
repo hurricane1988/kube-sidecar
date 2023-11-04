@@ -20,17 +20,30 @@ import (
 	"context"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	"kube-sidecar/pkg/clientset/fluent"
+	"kube-sidecar/pkg/clientset/kubernetes"
+	lg "kube-sidecar/pkg/clientset/logging"
 	"strings"
-
-	lg "kube-sidecar/utils/logging"
-
-	"kube-sidecar/utils/clients/k8s"
 )
 
-// CreateFluentBitSecret 创建secret方法
-func CreateFluentBitSecret(backend, name, namespace string, client k8s.Client, fluent FluentBitConf) error {
+type secret struct {
+	k8sClient kubernetes.Client
+}
+
+type Secret interface {
+	FluentBit(backend, name, namespace string, fluent fluent.Options) error
+}
+
+func NewSecret(k8sClient kubernetes.Client) Secret {
+	return &secret{
+		k8sClient: k8sClient,
+	}
+}
+
+// FluentBit 创建secret方法
+func (s *secret) FluentBit(backend, name, namespace string, fluent fluent.Options) error {
 	// 生成fluentBit secret []byte数据
-	data, err := GenerateFluentBitConfig(backend, fluent)
+	data, err := s.GenerateFluentBitConfig(backend, fluent)
 	if err != nil {
 		lg.Logger.Error("生成fluentBit配置文件失败,错误信息" + err.Error())
 		return nil
@@ -46,7 +59,7 @@ func CreateFluentBitSecret(backend, name, namespace string, client k8s.Client, f
 		},
 	}
 	// 创建secret
-	createdSecret, err := client.Kubernetes().CoreV1().Secrets(namespace).Create(context.Background(), newSecret, v1.CreateOptions{})
+	createdSecret, err := s.k8sClient.Kubernetes().CoreV1().Secrets(namespace).Create(context.Background(), newSecret, v1.CreateOptions{})
 	if err != nil {
 		lg.Logger.Error(err.Error())
 	}
@@ -55,7 +68,7 @@ func CreateFluentBitSecret(backend, name, namespace string, client k8s.Client, f
 }
 
 // GenerateFluentBitConfig 创建fluentBit配置文件模版,输出位[]byte
-func GenerateFluentBitConfig(backend string, fluent FluentBitConf) ([]byte, error) {
+func (s *secret) GenerateFluentBitConfig(backend string, fluent fluent.Options) ([]byte, error) {
 	data, err := FluentBitTemplate(backend, fluent)
 	if err != nil {
 		lg.Logger.Error(err.Error())

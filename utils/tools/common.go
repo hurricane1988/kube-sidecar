@@ -18,8 +18,9 @@ package tools
 
 import (
 	appsv1 "k8s.io/api/apps/v1"
-
-	lg "kube-sidecar/utils/logging"
+	lg "kube-sidecar/pkg/clientset/logging"
+	"math/rand"
+	"time"
 )
 
 // WhetherExists 检查某个字符是否在slice切片中
@@ -73,4 +74,11 @@ func WorkloadContainerNames(objType string, object interface{}) []string {
 		}
 	}
 	return names
+}
+
+// RandomInt64 生成随机int64
+func RandomInt64() int64 {
+	// 初始化随机数种子
+	rand.Seed(time.Now().UnixNano())
+	return rand.Int63n(100)
 }

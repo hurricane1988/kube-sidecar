@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package middleware
+package logging
 
 import (
 	"github.com/natefinch/lumberjack"
@@ -23,33 +23,40 @@ import (
 	"os"
 	"strings"
 	"time"
-
-	"kube-sidecar/config"
 )
 
-// 设置全局时间格式
+// TimeFormat 设置全局时间格式
 const (
-	logTmFmtWithMS = "2006-01-02 15:04:05.000"
+	TimeFormat = "2006-01-02 15:04:05.000"
 )
 
 // Logger 定义全局logger变量
 var Logger *zap.Logger
 
-// 初始化NewLogger
-func init() {
-	NewLogger()
+type Logging interface {
+	Encoder() zapcore.Encoder
+	ConsoleEncoder() zapcore.Encoder
+	WriteSyncer() zapcore.WriteSyncer
+	LevelEnabler() zapcore.Level
+	EncodeLevel(level zapcore.Level, enc zapcore.PrimitiveArrayEncoder)
+	EncodeTime(t time.Time, enc zapcore.PrimitiveArrayEncoder)
+	EncodeCaller(caller zapcore.EntryCaller, enc zapcore.PrimitiveArrayEncoder)
 }
 
-func NewLogger() {
-	logPath := config.Config.LoggingConfig.LogPath
-	writeable := config.Config.LoggingConfig.WriteLog
+func NewLogging(option Options) Logging {
+	return &option
+}
+
+func (o *Options) Logger() *zap.Logger {
 	// 定义全局的newCore
-	var newCore = zapcore.NewTee()
-	Encoder := GetEncoder()
-	WriteSyncer := GetWriteSyncer(logPath)
-	LevelEnabler := GetLevelEnabler()
-	ConsoleEncoder := GetConsoleEncoder()
-	switch writeable {
+	var (
+		newCore = zapcore.NewTee()
+	)
+	Encoder := o.Encoder()
+	WriteSyncer := o.WriteSyncer()
+	LevelEnabler := o.LevelEnabler()
+	ConsoleEncoder := o.ConsoleEncoder()
+	switch o.WriteLog {
 	case true:
 		newCore = zapcore.NewTee(
 			zapcore.NewCore(Encoder, WriteSyncer, LevelEnabler),                          // 写入文件
@@ -63,10 +70,11 @@ func NewLogger() {
 	}
 	Logger = zap.New(newCore, zap.AddCaller())
 	zap.ReplaceGlobals(Logger)
+	return Logger
 }
 
-// GetEncoder 自定义的Encoder
-func GetEncoder() zapcore.Encoder {
+// Encoder 自定义的Encoder
+func (o *Options) Encoder() zapcore.Encoder {
 	return zapcore.NewConsoleEncoder(
 		zapcore.EncoderConfig{
 			TimeKey:        "ts",
@@ -77,45 +85,45 @@ func GetEncoder() zapcore.Encoder {
 			MessageKey:     "msg",
 			StacktraceKey:  "stacktrace",
 			LineEnding:     "\n",
-			EncodeLevel:    EncodeLevel,
-			EncodeTime:     EncodeTime,
+			EncodeLevel:    o.EncodeLevel,
+			EncodeTime:     o.EncodeTime,
 			EncodeDuration: zapcore.SecondsDurationEncoder,
-			EncodeCaller:   EncodeCaller,
+			EncodeCaller:   o.EncodeCaller,
 		})
 }
 
-// GetConsoleEncoder 输出日志到控制台
-func GetConsoleEncoder() zapcore.Encoder {
+// ConsoleEncoder 输出日志到控制台
+func (o *Options) ConsoleEncoder() zapcore.Encoder {
 	return zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig())
 }
 
-// GetWriteSyncer 自定义的WriteSyncer
-func GetWriteSyncer(logPath string) zapcore.WriteSyncer {
+// WriteSyncer 自定义的WriteSyncer
+func (o *Options) WriteSyncer() zapcore.WriteSyncer {
 	lumberJackLogger := &lumberjack.Logger{
-		Filename:   strings.Join([]string{logPath, config.Config.LoggingConfig.Filename}, "/"),
-		MaxSize:    config.Config.LoggingConfig.MaxSize,
-		MaxBackups: config.Config.LoggingConfig.MaxBackups,
-		MaxAge:     config.Config.LoggingConfig.MaxAge,
+		Filename:   strings.Join([]string{o.LogPath, o.Filename}, "/"),
+		MaxSize:    o.MaxSize,
+		MaxBackups: o.MaxBackups,
+		MaxAge:     o.MaxAge,
 	}
 	return zapcore.AddSync(lumberJackLogger)
 }
 
-// GetLevelEnabler 自定义的LevelEnabler
-func GetLevelEnabler() zapcore.Level {
+// LevelEnabler 自定义的LevelEnabler
+func (o *Options) LevelEnabler() zapcore.Level {
 	return zapcore.InfoLevel
 }
 
 // EncodeLevel 自定义日志级别显示
-func EncodeLevel(level zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
+func (o *Options) EncodeLevel(level zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
 	enc.AppendString("[" + level.CapitalString() + "]")
 }
 
 // EncodeTime 自定义时间格式显示
-func EncodeTime(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
-	enc.AppendString("[" + t.Format(logTmFmtWithMS) + "]")
+func (o *Options) EncodeTime(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
+	enc.AppendString("[" + t.Format(TimeFormat) + "]")
 }
 
 // EncodeCaller 自定义行号显示
-func EncodeCaller(caller zapcore.EntryCaller, enc zapcore.PrimitiveArrayEncoder) {
+func (o *Options) EncodeCaller(caller zapcore.EntryCaller, enc zapcore.PrimitiveArrayEncoder) {
 	enc.AppendString("[" + caller.TrimmedPath() + "]")
 }

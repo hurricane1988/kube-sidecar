@@ -14,4 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package config
+package workload
+
+// Options 定义namespacesWhiteList结构体
+type Options struct {
+	Deployments []string `json:"names,omitempty" xml:"names,omitempty" yaml:"names,omitempty"`
+	Namespaces  []string `json:"namespaces,omitempty" xml:"namespaces,omitempty" yaml:"namespaces,omitempty"`
+}
+
+func NewWhiteListOptions() *Options {
+	return &Options{}
+}
